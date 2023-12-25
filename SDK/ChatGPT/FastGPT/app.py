@@ -39,9 +39,9 @@ class Main:
         json_data = json.dumps(data)
         print("-----------开始请求FastGPT-----------")
         try:
-            response = requests.post(self.url, data=json_data, headers=headers, timeout=15)
+            response = requests.post(self.url, data=json_data, headers=headers, timeout=35)
         except ConnectTimeout:
-            return False, "FastGPT连接超时，15秒未响应！"
+            return False, "FastGPT连接超时，35秒未响应！"
         result_json = json.loads(response.text)
         if response.status_code != 200:
             return False, "FastAPI返回状态码错误，请检查配置！"

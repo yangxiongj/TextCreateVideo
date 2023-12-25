@@ -79,13 +79,15 @@ class Main:
 if __name__ == '__main__':
     m = Main()
     picture_path_list = [
-        "/Users/anning/PycharmProjects/fastApiProject/media/picture/0.png",
-        "/Users/anning/PycharmProjects/fastApiProject/media/picture/1.png",
-        "/Users/anning/PycharmProjects/fastApiProject/media/picture/2.png",
-        "/Users/anning/PycharmProjects/fastApiProject/media/picture/3.png"]
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/picture/0.png",
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/picture/1.png",
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/picture/2.png",
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/picture/3.png"
+    ]
     audio_path_list = [
-        "/Users/anning/PycharmProjects/fastApiProject/SDK/Baidu/Voice/audio/0.wav",
-        "/Users/anning/PycharmProjects/fastApiProject/SDK/Baidu/Voice/audio/1.wav",
-        "/Users/anning/PycharmProjects/fastApiProject/SDK/Baidu/Voice/audio/2.wav"]
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/audio/0.wav",
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/audio/1.wav",
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/audio/2.wav",
+        "C:/Users/admin\PycharmProjects/TextCreateVideo/media/中国女性地位提高了吗/audio/3.wav"]
     name = "可乐"
     m.merge_video(picture_path_list, audio_path_list, name)

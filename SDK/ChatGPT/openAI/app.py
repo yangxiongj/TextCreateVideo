@@ -20,7 +20,7 @@ prompt_head = """Here, I introduce the concept of Prompts from the StableDiffusi
     2. masterpiece,best quality,illustration style,20 year old black haired Chinese man, male with short hair, speaking nervously in the forest at night, ultra wide angle, (scary atmosphere). 
     Please use English commas as separators. Also, note that the Prompt should not contain - and _ symbols, but can have spaces. 
     In character attributes, 1girl means you generated a girl, 2girls means you generated two girls. 
-    In the generation of Prompts, you need to describe character attributes, theme, appearance, emotion, clothing, posture, viewpoint, action, background using keywords. 
+    In the generation of Prompts, you need to describe character attributes, theme, appearance, emotion, clothing, posture, viewpoint, action, background using keywords3. 
     Please follow the example, and do not limit to the words I give you. Please provide a set of prompts that highlight the theme. 
     Note: The prompt cannot exceed 100 words, no need to use natural language description, character attributes need to be highlighted a little bit, for example: {role_name}\({feature}\).
     If the content contains a character name, add the specified feature as required, if the content does not contain the corresponding character name, then improvise.
@@ -68,8 +68,8 @@ class Main:
 
     @retry(stop_max_attempt_number=5)
     def get_response(self, headers, data):
-        return requests.post(self.url, headers=headers, json=data, timeout=20)
+        return requests.post(self.url, headers=headers, json=data, timeout=30)
 
 
 if __name__ == '__main__':
-    Main().prompt_generation_chatgpt("天空一声惊响，老子闪亮登场。", {"prompt": prompt_head})
+    print(Main().prompt_generation_chatgpt("天空一声惊响，老子闪亮登场。", {"prompt": prompt_head}))

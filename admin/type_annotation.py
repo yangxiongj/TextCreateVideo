@@ -50,7 +50,7 @@ class BookSectionType(BaseModel):
     prompt: str
     negative: str
     name: str
-
+    keywords: str
     class Config:
         from_attributes = True
 
@@ -72,7 +72,7 @@ class BookPicturesType(BaseModel):
     path: str
     index: int
     name: str
-
+    selected:int
     class Config:
         from_attributes = True
 

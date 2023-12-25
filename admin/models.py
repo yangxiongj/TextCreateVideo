@@ -30,6 +30,7 @@ class Book(Base):
     video_path = Column(String, comment="视频路径")
     status = Column(Enum(StatusEnum), default=StatusEnum.default, comment="状态")
     fail_info = Column(String, comment="失败信息")
+    is_emoji = Column(Boolean, comment="是否表情包")
 
     def __repr__(self):
         return '<Book: %s>' % self.name
@@ -43,7 +44,7 @@ class BookSection(Base):
     index = Column(Integer, comment="书本索引")
     prompt = Column(Text, comment="正向提示词")
     negative = Column(Text, comment="负向提示词")
-
+    keywords = Column(Text, comment="关键词")
 
 class BookVoice(Base):
     __tablename__ = 'book_voice'
@@ -59,7 +60,7 @@ class BookPictures(Base):
     book_id = Column(Integer, index=True)
     index = Column(Integer, comment="图片索引")
     path = Column(String, comment="图片路径")
-
+    selected = Column(Integer, comment="选中序列号")
 
 # -----------------------------------------------------------------------------
 #                    下面是优化图片效果和生成语音可调参数                      ------

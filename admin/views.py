@@ -24,11 +24,13 @@ from admin.type_annotation import Config, BookVoiceType, systemConfig, BookSecti
 from apps.GeneratePictures.app import Main as GPMain
 from apps.GenerateVideo.app import Main as GVMain
 from apps.PromptWords.app import Main as PMain
+from apps.KeyWords.app import Main as KMain
 from apps.SpeechSynthesis.app import Main as SMain
 from apps.TextSiice.app import Main as TMain
 from config import file_path, project_path, client_id, client_secret, appId, apikey, ForwardKey, sd_url, openAPI_KEY
 from fastapi import APIRouter
-
+from admin.jfifToPng import  download_and_convert_image
+from admin.sougou import sgreq
 router = APIRouter()
 
 
@@ -57,7 +59,7 @@ class VoiceDownload(BaseModel):
 @router.get("/book")
 async def book_list(db: SessionLocal = Depends(get_db)):
     query = text(
-        "SELECT id, name, path, strftime('%Y-%m-%d %H:%M:%S', create_dt), video_path, status, fail_info FROM book")
+        "SELECT id, name, path, strftime('%Y-%m-%d %H:%M:%S', create_dt), video_path, status, fail_info,is_emoji FROM book")
     result = db.execute(query)
     res = []
     for i in result:
@@ -71,6 +73,7 @@ async def book_list(db: SessionLocal = Depends(get_db)):
             "status": i.t[5],
             "fail_info": i.t[6],
             # "status_value": StatusEnum[i.t[5]],
+            "is_emoji": i.t[7]
         }
         res.append(data)
     return success_data(res)
@@ -112,7 +115,7 @@ async def create_book(file: UploadFile = File(...), db: SessionLocal = Depends(g
         return error_data("书已存在！")
     contents = await file.read()
     path = save_file(contents, file.filename, file_path)
-    book = Book(name=file.filename, path=path)
+    book = Book(name=file.filename,is_emoji = 1, path=path)
     db.add(book)
     db.commit()
     db.refresh(book)
@@ -157,6 +160,12 @@ async def create_video(id, request: Request, db: SessionLocal = Depends(get_db))
         t.start()
         return success_data({}, message="视频生成任务启动成功！")
     return error_data("书不存在！")
+@router.get("/book/checkEmoji/{id}")
+async def check_emoji(id, request: Request, db: SessionLocal = Depends(get_db)):
+    book = db.query(Book).get(id)
+    book.is_emoji = not book.is_emoji
+    db.commit()
+    return success_data({}, message="修改成功！")
 
 
 class CreateVideo:
@@ -188,7 +197,7 @@ class CreateVideo:
             func.count(BookSection.id)).scalar()
         if count > 0 and count == len(text_list):
             book_section = db.query(BookSection).filter(BookSection.book_id == book.id).all()
-            object_list = [{"prompt": i.prompt, "negative": i.negative, "index": i.index} for i in book_section]
+            object_list = [{"prompt": i.prompt, "negative": i.negative, "index": i.index, "keywords3": i.keywords} for i in book_section]
         else:
             if count > 0 and count != len(text_list):
                 # 构建查询对象
@@ -198,19 +207,33 @@ class CreateVideo:
                 db.commit()
             # 生成提示词任务
             # scene_tag = db.merge(scene_tag)
-            object_list = self.create_prompt_words(text_list, scene_tag, prompt_dict)
-            print(object_list)
-            data_list = []
-            for i in object_list:
-                data_list.append(BookSection(
-                    book_id=book.id,
-                    paragraph=i['text'],
-                    index=i['index'],
-                    prompt=i['prompt'],
-                    negative=i['negative'],
-                ))
-            db.add_all(data_list)
-            db.commit()
+            if not book.is_emoji:
+                object_list = self.create_prompt_words(text_list, scene_tag, prompt_dict)
+                print(object_list)
+                data_list = []
+                for i in object_list:
+                    data_list.append(BookSection(
+                        book_id=book.id,
+                        paragraph=i['text'],
+                        index=i['index'],
+                        prompt=i['prompt'],
+                        negative=i['negative'],
+                    ))
+                db.add_all(data_list)
+                db.commit()
+            else:
+                object_list = self.create_key_words(text_list, scene_tag)
+                print(object_list)
+                data_list = []
+                for i in object_list:
+                    data_list.append(BookSection(
+                        book_id=book.id,
+                        paragraph=i['text'],
+                        index=i['index'],
+                        keywords=i['keywords3'],
+                    ))
+                db.add_all(data_list)
+                db.commit()
         count = db.query(BookVoice).filter(BookVoice.book_id == book.id).with_entities(
             func.count(BookVoice.id)).scalar()
         if count > 0 and count == len(text_list):
@@ -239,7 +262,7 @@ class CreateVideo:
             func.count(BookPictures.id)).scalar()
         if count > 0 and count == len(text_list):
             book_pictures = db.query(BookPictures).filter(BookPictures.book_id == book.id).all()
-            picture_path_list = [i.path for i in book_pictures]
+            picture_path_list = [i.path.split(',')[i.selected] for i in book_pictures]
         else:
             if count > 0 and count != len(text_list):
                 # 构建查询对象
@@ -248,17 +271,24 @@ class CreateVideo:
                 db.execute(stmt)
                 db.commit()
             # 生成图片任务
-            picture_path_list = self.create_picture(object_list, book.name, sd_config)
+            if not book.is_emoji:
+                picture_path_list = self.create_picture(object_list, book.name, sd_config)
+            else:
+                picture_path_list = self.create_key_picture(object_list)
             picture_model_list = []
             for index, value in enumerate(picture_path_list):
                 picture_model_list.append(BookPictures(
                     book_id=book.id,
                     index=index,
-                    path=value
+                    path=value,
+                    selected=0
                 ))
             db.add_all(picture_model_list)
             db.commit()
+            picture_path_list = [i.split(',')[0] for i in picture_path_list]
         config = db.merge(config)
+        # 下载图片并且转换成png格式
+        picture_path_list = download_and_convert_image(picture_path_list, os.path.splitext(book.name)[0])
         # 视频任务
         video_path = self.create_video(picture_path_list, audio_list, book.name, config)
         print(video_path)
@@ -299,7 +329,16 @@ class CreateVideo:
         # object_list = await p.create_prompt_words2(text_list, tags)
 
         return object_list
+    def create_key_words(self, text_list, tags):
+        """
+        生成提示词
+        :return:
+        """
+        k = KMain()
+        object_list = k.create_key_words(text_list, tags)
+        # object_list = await p.create_prompt_words2(text_list, tags)
 
+        return object_list
     def create_picture(self, obj_list, book_name, sd_config):
         """
         生成图片
@@ -307,7 +346,15 @@ class CreateVideo:
         """
         gp = GPMain()
         return gp.create_picture(obj_list, book_name, sd_config)
-
+    def create_key_picture(self, obj_list):
+        """
+        根据关键词生成图片
+        :return:
+        """
+        picture_path_list = []
+        for  index,value in enumerate(obj_list):
+            picture_path_list.insert(value['index'],(",").join(sgreq(value['keywords3'])))
+        return picture_path_list
     def create_video(self, picture_path_list, audio_list, book_name, config):
         """
         生成视频
@@ -397,6 +444,7 @@ async def section_list(book_id: Optional[int] = None, db: SessionLocal = Depends
             BookSection.index,
             BookSection.prompt,
             BookSection.negative,
+            BookSection.keywords,
             Book.name,
         ).outerjoin(Book, BookSection.book_id == Book.id).filter(BookSection.book_id == book_id).order_by(
             BookSection.id.desc()).all()
@@ -408,6 +456,7 @@ async def section_list(book_id: Optional[int] = None, db: SessionLocal = Depends
             BookSection.index,
             BookSection.prompt,
             BookSection.negative,
+            BookSection.keywords,
             Book.name,
         ).outerjoin(Book, BookSection.book_id == Book.id).order_by(BookSection.id.desc()).all()
     return sections
@@ -481,6 +530,7 @@ async def pictures_list(book_id: Optional[int] = None, db: SessionLocal = Depend
             BookPictures.book_id,
             BookPictures.index,
             BookPictures.path,
+            BookPictures.selected,
             Book.name,
         ).outerjoin(Book, BookPictures.book_id == Book.id).filter(BookPictures.book_id == book_id).order_by(
             BookPictures.id.desc()).all()
@@ -490,10 +540,18 @@ async def pictures_list(book_id: Optional[int] = None, db: SessionLocal = Depend
             BookPictures.book_id,
             BookPictures.index,
             BookPictures.path,
+            BookPictures.selected,
             Book.name,
         ).outerjoin(Book, BookPictures.book_id == Book.id).order_by(BookPictures.id.desc()).all()
     return pictures
-
+@router.put("/book/pictures/{id}")
+async def check_pictures(id, pictures_type: BookPicturesType, db: SessionLocal = Depends(get_db)):
+    model = pictures_type.model_dump()
+    del model['name']
+    stmt = update(BookPictures).where(BookPictures.id == id).values(**model)
+    db.execute(stmt)
+    db.commit()
+    return success_data({}, message="修改成功！")
 
 @router.post("/book/pictures/download")
 async def pictures_download(id_list: VoiceDownload, db: SessionLocal = Depends(get_db)):
